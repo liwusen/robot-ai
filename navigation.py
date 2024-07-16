@@ -35,7 +35,7 @@ nameDict={
     10:"T10",
 }
 def dijkstra():
-    global n,ans,pre,d,v,s,t
+    global n,ans,pre, d,v,s,t
     #init d
     v=[False]*(n+2)#是否访问
     d=[1e9]*(n+2)#是否访问

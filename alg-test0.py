@@ -1,28 +1,36 @@
-import cv2,math
+import cv2,math,scipy
+import numpy as np
 cap=cv2.VideoCapture(0)
 def circleFunc(x):
     #⁅𝑦=√(1−𝑥^2 )⁆
     return math.sqrt(abs(1-x*x))
-
+UPV=np.array((10,20,180))
+DOWNV=np.array((50,130,255))
 while True:
     ret, frame = cap.read()
     height, width = frame.shape[:2]
-    cv2.imshow('CAMERA', frame)
+    #cv2.imshow('CAMERA', frame)
     
     if ret:
         gray_img=cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         #print(gray_img[100][100])
         #cv2.imshow('gray', gray_img)
-        retval,threshold_img = cv2.threshold(gray_img,180,255,cv2.THRESH_BINARY)
+        hsv_img = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        print("HSV:",hsv_img[100][100])
+        threshold_img = cv2.inRange(hsv_img, UPV, DOWNV)
         
         cv2.imshow('threshold', threshold_img)
         final=frame[:]
+
+        cv2.circle(final,(100,100),5,(0,0,255),-1)
+
         left=0
         right=1
         last100_x=[0 for i in range(100)]
         last_x=0
         crossingFlg=False
         crossingLineY=0
+        mids=[]
         for i in range(height-1,0,-3):
             for j in range(width//2, width,3):
                 if(threshold_img[i][j]>=240):
@@ -38,9 +46,10 @@ while True:
             if(left<right):
                 #print("T1",(left+right+last100_x[80]*0.8)//2.8)
                 cv2.line(final, (last_x, i-5),
-                          (int((left+right+last100_x[80]*0.5+last100_x[70]*0.4+last100_x[50]*0.3)//3.2),i),(0, 255, 0), 
+                          (int((left+right))//2,i),(0, 255, 0), 
                         2)
                 last_x=(left+right)//2
+                for i in range(3): mids.append((left+right)//2)
             last100_x=last100_x[1:]+[(left+right)//2]
             if(True and i>=height//2):
                 #十字路口判断
@@ -49,9 +58,13 @@ while True:
                     crossingFlg=True
                     crossingLineY=i
                     break
-                
+        print(len(mids))
+        mids=scipy.signal.savgol_filter(mids,5,3,mode="nearest")
+        print(len(mids))
+        for i in range(0,len(mids)):
+            final[int(height-1-i)][int(mids[i])]=(255,0,0)
+            cv2.circle(final,(int(mids[i]),int(height-1-i)),5,(0,0,255),-1)
             
-
         
         if crossingFlg:
             cv2.putText(final, 'Crossing', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
@@ -75,19 +88,22 @@ while True:
             #右判断
             
             alpha=.25
-            for i in range(0,width,3):
-                crossingData=[[0,0],[0,0]]
-                print("exec")
-                for j in range(int(height*alpha),height,3):
-                    if(rightRotate[i][j]>=240):
-                        crossingData[1][1]=j#left
-                for j in range(int(height*alpha),0,-3):
-                    if(rightRotate[i][j]>=240):
-                        crossingData[1][0]=j#right
-                cv2.circle(final,(i,crossingData[1][0]),5,(0,0,255),-1)
-                cv2.circle(rightPre,(i,crossingData[1][0]),5,(0,0,255),-1)
-                print("RIGHT",i,(crossingData[1][1]+crossingData[1][0])//2)
-            cv2.imshow('rightRotatePreview', rightPre)
+            # for i in range(0,width,3):
+            #     crossingData=[[0,0],[0,0]]
+            #     print("exec")
+            #     for j in range(int(height*alpha),height,3):
+            #         if(rightRotate[i][j]>=240):
+            #             crossingData[1][1]=j#left
+            #     for j in range(int(height*alpha),0,-3):
+            #         if(rightRotate[i][j]>=240):
+            #             crossingData[1][0]=j#right
+            #     cv2.circle(final,(i,crossingData[1][0]),5,(0,0,255),-1)
+            #     cv2.circle(rightPre,(i,crossingData[1][0]),5,(0,0,255),-1)
+            #     print("RIGHT",i,(crossingData[1][1]+crossingData[1][0])//2)
+
+
+
+            # cv2.imshow('rightRotatePreview', rightPre)
             # while(nowx<width and nowy<height):
             #     for i2 in range(4,6,1):
             #         i=i2/10
