@@ -4,8 +4,10 @@ cap=cv2.VideoCapture(0)
 def circleFunc(x):
     #⁅𝑦=√(1−𝑥^2 )⁆
     return math.sqrt(abs(1-x*x))
-UPV=np.array((10,20,180))
+UPV=np.array((10,40,180))
 DOWNV=np.array((50,130,255))
+nowMid=0
+CONF_filtrationMin=20
 while True:
     ret, frame = cap.read()
     height, width = frame.shape[:2]
@@ -40,17 +42,21 @@ while True:
                 if(threshold_img[i][j]>=240):
                     left=j
                     break
+            if (left==0 and right==1 and len(mids)>0) or (len(mids)>0 and abs(mids[-1]-(left+right)//2)>=CONF_filtrationMin):
+                nowMid=mids[-1]
+            else:
+                nowMid=int((left+right)//2)
             if(left<70): left=70
             #print("left",left)
             if(right>650): right=650
             if(left<right):
                 #print("T1",(left+right+last100_x[80]*0.8)//2.8)
                 cv2.line(final, (last_x, i-5),
-                          (int((left+right))//2,i),(0, 255, 0), 
+                          (int(nowMid),i),(0, 255, 0), 
                         2)
-                last_x=(left+right)//2
-                for i in range(3): mids.append((left+right)//2)
-            last100_x=last100_x[1:]+[(left+right)//2]
+                last_x=nowMid
+                for i in range(3): mids.append(nowMid)
+            last100_x=last100_x[1:]+[nowMid]
             if(True and i>=height//2):
                 #十字路口判断
                 if(threshold_img[i][width//2]>=240):
@@ -59,7 +65,7 @@ while True:
                     crossingLineY=i
                     break
         print(len(mids))
-        mids=scipy.signal.savgol_filter(mids,5,3,mode="nearest")
+        mids=scipy.signal.savgol_filter(mids,11,3,mode="nearest")
         print(len(mids))
         for i in range(0,len(mids)):
             final[int(height-1-i)][int(mids[i])]=(255,0,0)
