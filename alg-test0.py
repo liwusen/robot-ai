@@ -4,13 +4,14 @@ cap=cv2.VideoCapture(0)
 def circleFunc(x):
     #⁅𝑦=√(1−𝑥^2 )⁆
     return math.sqrt(abs(1-x*x))
-UPV=np.array((10,40,180))
-DOWNV=np.array((50,130,255))
+UPV=np.array((15,20,180))
+DOWNV=np.array((50,255,255))
 nowMid=0
 CONF_filtrationMin=20
 while True:
     ret, frame = cap.read()
     height, width = frame.shape[:2]
+    if(not ret): continue
     #cv2.imshow('CAMERA', frame)
     
     if ret:
@@ -20,7 +21,7 @@ while True:
         hsv_img = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         print("HSV:",hsv_img[100][100])
         threshold_img = cv2.inRange(hsv_img, UPV, DOWNV)
-        
+        threshold_img = cv2.GaussianBlur(threshold_img,(5,5),0)
         cv2.imshow('threshold', threshold_img)
         final=frame[:]
 
@@ -33,6 +34,7 @@ while True:
         crossingFlg=False
         crossingLineY=0
         mids=[]
+        leftAndRights=[]
         for i in range(height-1,0,-3):
             for j in range(width//2, width,3):
                 if(threshold_img[i][j]>=240):
@@ -44,8 +46,10 @@ while True:
                     break
             if (left==0 and right==1 and len(mids)>0) or (len(mids)>0 and abs(mids[-1]-(left+right)//2)>=CONF_filtrationMin):
                 nowMid=mids[-1]
+                leftAndRights.append(leftAndRights[-1])
             else:
                 nowMid=int((left+right)//2)
+                leftAndRights.append([left,right])
             if(left<70): left=70
             #print("left",left)
             if(right>650): right=650
@@ -70,30 +74,41 @@ while True:
         for i in range(0,len(mids)):
             final[int(height-1-i)][int(mids[i])]=(255,0,0)
             cv2.circle(final,(int(mids[i]),int(height-1-i)),5,(0,0,255),-1)
-            
+        #slope calc
+        if(len(leftAndRights)>=5):
+            slopes=[0,0]
+            for i in range(1,len(leftAndRights)):
+                slopes[0]+=leftAndRights[i][0]-leftAndRights[i-1][0]
+                slopes[1]+=leftAndRights[i][1]-leftAndRights[i-1][1]
+            slopes[0]/=len(leftAndRights)-1
+            slopes[1]/=len(leftAndRights)-1
+            cv2.putText(final,f"left: {str(slopes[0])[0:6]}",(10,60),cv2.FONT_HERSHEY_COMPLEX,1,(0,255,0),cv2.LINE_4)
+            cv2.putText(final,f"right: {str(slopes[1])[0:6]}",(10,90),cv2.FONT_HERSHEY_COMPLEX,1,(0,255,0),cv2.LINE_4)
+            cv2.putText(final,f"avg: {(slopes[0]+slopes[1]/2)}",(10,120),cv2.FONT_HERSHEY_COMPLEX,1,(0,255,0),cv2.LINE_4)
+                
         
         if crossingFlg:
             cv2.putText(final, 'Crossing', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
             nowx,nowy=right,crossingLineY
             
-            slope=(last100_x[0]-last100_x[50])/50
-            #斜率 （平均到每像素）
-            #
-            #print("SLOPE:",slope)
-            lx,rx=left,right
-            for i in range(crossingLineY-300,crossingLineY+300):
-                lx=lx+slope
-                lx=int(lx)
-                if(lx<0 or lx>=width  or i>=height):
-                    continue
-                #print("FULL",lx,i)
-                final[i][lx]=(255,0,0)
-            rightRotate=cv2.rotate(threshold_img,cv2.ROTATE_90_CLOCKWISE)[:]
-            leftRotate=cv2.rotate(threshold_img,cv2.ROTATE_90_COUNTERCLOCKWISE)[:]
-            rightPre=cv2.rotate(frame,cv2.ROTATE_90_CLOCKWISE)[:]
-            #右判断
+            # slope=(last100_x[0]-last100_x[50])/50
+            # #斜率 （平均到每像素）
+            # #
+            # #print("SLOPE:",slope)
+            # lx,rx=left,right
+            # for i in range(crossingLineY-300,crossingLineY+300):
+            #     lx=lx+slope
+            #     lx=int(lx)
+            #     if(lx<0 or lx>=width  or i>=height):
+            #         continue
+            #     #print("FULL",lx,i)
+            #     final[i][lx]=(255,0,0)
+            # rightRotate=cv2.rotate(threshold_img,cv2.ROTATE_90_CLOCKWISE)[:]
+            # leftRotate=cv2.rotate(threshold_img,cv2.ROTATE_90_COUNTERCLOCKWISE)[:]
+            # rightPre=cv2.rotate(frame,cv2.ROTATE_90_CLOCKWISE)[:]
+            # #右判断
             
-            alpha=.25
+            # alpha=.25
             # for i in range(0,width,3):
             #     crossingData=[[0,0],[0,0]]
             #     print("exec")
