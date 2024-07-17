@@ -1,6 +1,6 @@
 import cv2 as cv
 import os
-import numpy as np
+import numpy as np,time
 import scipy
 cv2=cv
 
@@ -24,7 +24,7 @@ def mid(follow, mask):
     halfWidth = follow.shape[1] // 2
     half = halfWidth  # 从下往上扫描赛道,最下端取图片中线为分割线
     mids = []
-    for y in range(follow.shape[0] - 1, -1, -1):
+    for y in range(follow.shape[0] - 1, -1, -3):
         left=0
         right=follow.shape[1]
         # 计算左边界
@@ -36,7 +36,7 @@ def mid(follow, mask):
                 left = np.average(left_indices)
             else:
                 left = 0  # 或者选择一个合理的默认值
-            print("Left", left)
+            #print("Left", left)
 
         # 计算右边界
         if (mask[y][half:min(follow.shape[1], half + halfWidth)] == np.zeros_like(mask[y][half:min(follow.shape[1], half + halfWidth)])).all():
@@ -47,18 +47,18 @@ def mid(follow, mask):
                 right = np.average(right_indices) + half
             else:
                 right = follow.shape[1]  # 或者选择一个合理的默认值
-            print("Right", right)
+            #print("Right", right)
 
         mid = (left + right) // 2  # 计算拟合中点
-        print(left,right,half,mid)
+        #print(left,right,half,mid)
         half = int(mid)  # 递归,从下往上确定分割线
         follow[y, int(mid)] = 255  # 画出拟合中线
         mids.append(mid)
 
-        if y == 360:  # 设置指定提取中点的纵轴位置
-            mid_output = int(mid)
+        # if y == 360:  # 设置指定提取中点的纵轴位置
+        #     mid_output = int(mid)
 
-    cv.circle(follow, (mid_output, 360), 5, 255, -1)  # opencv为(x,y),画出指定提取中点
+    #cv.circle(follow, (mid_output, 360), 5, 255, -1)  # opencv为(x,y),画出指定提取中点
     mids = scipy.signal.savgol_filter(mids, 11, 3, mode="nearest")
     error = np.average(np.array(mids)) - halfWidth
     cv2.putText(follow, f"error:{error}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255), 2, cv2.LINE_4)
@@ -70,7 +70,9 @@ n = -1
 path = "./phone"
 DOWNV=np.array((15,20,180))
 UPV=np.array((50,255,255))
+
 while True:
+    stt=time.time()
     ret,img = cv.VideoCapture(0).read()
     if not ret:
         continue
@@ -83,10 +85,11 @@ while True:
     follow = mask.copy()
     follow, error = mid(follow, mask)
     print(n, f"error:{error}")
- 
+    
     cv.imshow("img", img)
     cv.imshow("mask", mask)
     cv.imshow("follow", follow)
-    if(cv.waitKey(1) & 0xFF == ord('q')):
+    if(cv.waitKey(1) & 0xFF == ord('q') or cv.waitKey(1) & 0xFF == ord('Q')):
         break
+    print("FPS=",1/(time.time()-stt))
 cv.destroyAllWindows()
