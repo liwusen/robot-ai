@@ -1,30 +1,44 @@
 import cv2 as cv
 import os
-import numpy as np,time
+import numpy as np
+import time
 import scipy
 cv2=cv
-
+DBG_TIMER = 0
+def dbg_timer(msg):
+    global DBG_TIMER
+    if DBG_TIMER == 0:
+        print(msg)
+    else:
+        print(msg, time.time() - DBG_TIMER)
+    DBG_TIMER = time.time()
+def dbg_timer_rst():
+    global DBG_TIMER
+    DBG_TIMER = time.time()
+    print("=====DBG_TIMER reset=====")
 def mid(follow, mask):
     """
-    Calculates the midpoint of the lane in an image.
+        计算图像中车道的中点。
 
-    Args:
-        follow (numpy.ndarray): The image containing the lane.
-        mask (numpy.ndarray): The binary mask of the lane.
+    参数：
+            follow （numpy.ndarray）：包含车道的图像。
+            mask （numpy.ndarray）：通道的二进制掩码。
 
-    Returns:
-        tuple: A tuple containing the modified image with the lane midpoint marked and the error value.
+    返回：
+            tuple：包含标记了车道中点和错误值的修改图像的元组。
 
-    The function iterates through the image from bottom to top, finding the midpoint of the lane at each row.
-    It uses the binary mask to determine the left and right boundaries of the lane at each row.
-    The midpoint is calculated as the average of the left and right boundaries.
-    The function also calculates the error, which represents the deviation of the midpoint from the center of the image.
-    The modified image is returned with the lane midpoint marked, along with the error value.
+    该函数从下到上遍历图像，在每一行处找到车道的中点。
+        它使用二进制掩码来确定每行车道的左右边界。
+        中点计算为左右边界的平均值。
+        该函数还计算误差，该误差表示中点与图像中心的偏差。
+        将返回修改后的图像，并标记车道中点以及错误值。
     """
+    
     halfWidth = follow.shape[1] // 2
     half = halfWidth  # 从下往上扫描赛道,最下端取图片中线为分割线
     mids = []
     for y in range(follow.shape[0] - 1, -1, -3):
+        dbg_timer_rst()
         left=0
         right=follow.shape[1]
         # 计算左边界
@@ -37,7 +51,7 @@ def mid(follow, mask):
             else:
                 left = 0  # 或者选择一个合理的默认值
             #print("Left", left)
-
+        dbg_timer("left")
         # 计算右边界
         if (mask[y][half:min(follow.shape[1], half + halfWidth)] == np.zeros_like(mask[y][half:min(follow.shape[1], half + halfWidth)])).all():
             right = min(follow.shape[1], half + halfWidth)
@@ -48,13 +62,13 @@ def mid(follow, mask):
             else:
                 right = follow.shape[1]  # 或者选择一个合理的默认值
             #print("Right", right)
-
+        dbg_timer("right")
         mid = (left + right) // 2  # 计算拟合中点
         #print(left,right,half,mid)
         half = int(mid)  # 递归,从下往上确定分割线
         follow[y, int(mid)] = 255  # 画出拟合中线
         mids.append(mid)
-
+        #print("Mid", mid)
         # if y == 360:  # 设置指定提取中点的纵轴位置
         #     mid_output = int(mid)
 
@@ -70,18 +84,21 @@ n = -1
 path = "./phone"
 DOWNV=np.array((15,20,180))
 UPV=np.array((50,255,255))
-
+cap=cv.VideoCapture(0)
 while True:
     stt=time.time()
-    ret,img = cv.VideoCapture(0).read()
+    ret,img = cap.read()
     if not ret:
         continue
     img = cv.resize(img,(640,480))
     
-    # HSV阈值分割
+    # HSV阈值分割(颜色)
     img_hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
     mask = cv.inRange(img_hsv, DOWNV, UPV)
+
+    # 高斯模糊(去除噪声)
     mask = cv2.GaussianBlur(mask,(5,5),0)
+
     follow = mask.copy()
     follow, error = mid(follow, mask)
     print(n, f"error:{error}")
